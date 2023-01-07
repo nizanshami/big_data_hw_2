@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.sql.PreparedStatement;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,17 +29,17 @@ public class HW2StudentAnswer implements HW2API{
 	// CQL stuff
 	//TODO: add here create table and query designs 
 	
-	private static final String		TABLE_ITEM_BY_ASIM = "item_by_asim";
-	private static final String		TABLE_USER_REVIEWS_BY_REVIEWER_ID = "uesrReviews_by_reviewerID";
-	private static final String		TABLE_ITEMREVIEWS_BY_ASIM = "itemReviews_by_asin";
+	private static final String		TABLE_ITEM_BY_ASIN = "item_by_asin";
+	private static final String		TABLE_USER_REVIEWS_BY_REVIEWER_ID = "userReviews_by_reviewerID";
+	private static final String		TABLE_ITEMREVIEWS_BY_ASIN = "itemReviews_by_asin";
 		
 	private static final String		CQL_CREATE_ITEM_BY_ASIN = 
-			"CREATE TABLE " + TABLE_ITEM_BY_ASIM  +"(" 		+ 
-				"asin text,"			+
-				"title text,"			+
-				"image text,"			+
+			"CREATE TABLE " + TABLE_ITEM_BY_ASIN  +"(" 		+ 
+				"asin text,"				+
+				"title text,"				+
+				"image text,"				+
 				"catagories set<text>,"		+
-				"description text,"		+
+				"description text,"			+
 				"PRIMARY KEY (asin)"		+
 			")";				
 			
@@ -47,20 +48,41 @@ public class HW2StudentAnswer implements HW2API{
 				"reviewerID text,"				+
 				"ts timestamp,"					+
 				"asin text,"					+
-				"reviewerName text,"				+
+				"reviewerName text,"			+
 				"rating int,"					+
 				"summary text,"					+
 				"PRIMARY KEY ((reviewerID), ts, asin)"		+
 			") "							+
-			"WITH CLUSTERING ORDER BY (ts DESC)";
+			"WITH CLUSTERING ORDER BY (ts DESC, asin DESC)";
 
 
+	private static final String		CQL_CREATE_ITEMREVIEWS_BY_ASIN =
+			"CREATE TABLE " + TABLE_ITEMREVIEWS_BY_ASIN 	+"(" 		+ 
+				"reviewerID text,"				+
+				"ts timestamp,"					+
+				"asin text,"					+
+				"reviewerName text,"			+
+				"rating int,"					+
+				"summary text,"					+
+				"PRIMARY KEY ((asin), ts , reviewerID)"		+
+			") "							+
+			"WITH CLUSTERING ORDER BY (ts DESC, reviewerID DESC)";
+	
+
+	private static final String		CQL_ITEM_BY_ASIM = "item_by_asim";
+	private static final String		TABLE_USER_REVIEWS_BY_REVIEWER_ID = "userReviews_by_reviewerID";
+			
+	
+			
 	// cassandra session
 	private CqlSession session;
 	
 	// prepared statements
 	//TODO: add here prepared statements variables
-	
+	private PreparedStatement psAddOfficeProducts;  
+	private PreparedStatement psAddOfficeReviews;
+	private PreparedStatement psSelectItemDetails;
+	private PreparedStatement psSelectReviewsDetails;
 	
 	@Override
 	public void connect(String pathAstraDBBundleFile, String username, String password, String keyspace) {
@@ -94,17 +116,21 @@ public class HW2StudentAnswer implements HW2API{
 	}
 
 	
+
 	
 	@Override
 	public void createTables() {
-		//TODO: implement this function
-		System.out.println("TODO: implement this function...");
+		session.execute(CQL_CREATE_ITEM_BY_ASIN);
+		System.out.println("created table: " + TABLE_ITEM_BY_ASIM);
+		session.execute(CQL_CREATE_USER_REVIEWS_BY_REVIEWER_ID);
+		System.out.println("created table: " + TABLE_USER_REVIEWS_BY_REVIEWER_ID);
+		session.execute(CQL_CREATE_ITEMREVIEWS_BY_ASIM);
+		System.out.println("created table: " + TABLE_ITEMREVIEWS_BY_ASIM);
 	}
 
 	@Override
 	public void initialize() {
-		//TODO: implement this function
-		System.out.println("TODO: implement this function...");
+		psAddOfficeProducts = session.prepare(CQL)
 	}
 
 	@Override
