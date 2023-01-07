@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.sql.PreparedStatement;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,6 +15,7 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.shaded.guava.common.cache.Cache;
 import com.datastax.oss.driver.shaded.guava.common.io.InsecureRecursiveDeleteException;
 
@@ -30,8 +30,9 @@ public class HW2StudentAnswer implements HW2API{
 	//TODO: add here create table and query designs 
 	
 	private static final String		TABLE_ITEM_BY_ASIN = "item_by_asin";
-	private static final String		TABLE_USER_REVIEWS_BY_REVIEWER_ID = "userReviews_by_reviewerID";
 	private static final String		TABLE_ITEMREVIEWS_BY_ASIN = "itemReviews_by_asin";
+	private static final String		TABLE_USER_REVIEWS_BY_REVIEWER_ID = "userReviews_by_reviewerID";
+	
 		
 	private static final String		CQL_CREATE_ITEM_BY_ASIN = 
 			"CREATE TABLE " + TABLE_ITEM_BY_ASIN  +"(" 		+ 
@@ -69,9 +70,25 @@ public class HW2StudentAnswer implements HW2API{
 			"WITH CLUSTERING ORDER BY (ts DESC, reviewerID DESC)";
 	
 
-	private static final String		CQL_ITEM_BY_ASIM = "item_by_asim";
-	private static final String		TABLE_USER_REVIEWS_BY_REVIEWER_ID = "userReviews_by_reviewerID";
-			
+	
+	private static final String		CQL_ITEM_BY_ASIN_SELECT = 
+		"SELECT * FROM " + TABLE_ITEMREVIEWS_BY_ASIN + "WHERE asin = ?";
+	
+	private static final String		CQL_REVIEWS_BY_REVIEWERID_SELECT = 
+		"SELECT * FROM " + TABLE_USER_REVIEWS_BY_REVIEWER_ID + "WHERE reviewerID = ?";
+	
+	private static final String		CQL_REVIEWS_BY_ASIN_SELECT = 
+		"SELECT * FROM " + TABLE_ITEMREVIEWS_BY_ASIN + "WHERE asin = ?";
+	
+	private static final String		CQL_ITEM_BY_ASIN_INSERT = 
+		"INSERT INTO " + TABLE_ITEMREVIEWS_BY_ASIN + "(asin, title, image, catagories, description) VALUES(?,?,?,?,?)";
+	
+	private static final String		CQL_REVIEWS_BY_REVIEWERID_INSERT = 
+		"INSERT INTO " + TABLE_ITEMREVIEWS_BY_ASIN + "(reviewerID, ts, asin, reviewerName, rating, summary) VALUES(?,?,?,?,?,?)";
+	
+	private static final String		CQL_REVIEWS_BY_ASIN_INSERT = 
+		"INSERT INTO " + TABLE_ITEMREVIEWS_BY_ASIN + "(reviewerID, ts, asin, reviewerName, rating, summary) VALUES(?,?,?,?,?,?)";
+	
 	
 			
 	// cassandra session
@@ -79,10 +96,12 @@ public class HW2StudentAnswer implements HW2API{
 	
 	// prepared statements
 	//TODO: add here prepared statements variables
-	private PreparedStatement psAddOfficeProducts;  
-	private PreparedStatement psAddOfficeReviews;
-	private PreparedStatement psSelectItemDetails;
-	private PreparedStatement psSelectReviewsDetails;
+	private PreparedStatement psAddItemAsin;  
+	private PreparedStatement psAddReviewsReviewerID;
+	private PreparedStatement psAddReviewsAsin;
+	private PreparedStatement psSelectItemAsin;
+	private PreparedStatement psSelectReviewsReviewerID;
+	private PreparedStatement psSelectReviewsAsin;
 	
 	@Override
 	public void connect(String pathAstraDBBundleFile, String username, String password, String keyspace) {
@@ -121,16 +140,22 @@ public class HW2StudentAnswer implements HW2API{
 	@Override
 	public void createTables() {
 		session.execute(CQL_CREATE_ITEM_BY_ASIN);
-		System.out.println("created table: " + TABLE_ITEM_BY_ASIM);
+		System.out.println("created table: " + TABLE_ITEM_BY_ASIN);
 		session.execute(CQL_CREATE_USER_REVIEWS_BY_REVIEWER_ID);
 		System.out.println("created table: " + TABLE_USER_REVIEWS_BY_REVIEWER_ID);
-		session.execute(CQL_CREATE_ITEMREVIEWS_BY_ASIM);
-		System.out.println("created table: " + TABLE_ITEMREVIEWS_BY_ASIM);
+		session.execute(CQL_CREATE_ITEMREVIEWS_BY_ASIN);
+		System.out.println("created table: " + TABLE_ITEMREVIEWS_BY_ASIN);
 	}
 
 	@Override
 	public void initialize() {
-		psAddOfficeProducts = session.prepare(CQL)
+		psAddItemAsin = session.prepare(CQL_ITEM_BY_ASIN_INSERT);
+		psAddReviewsAsin = session.prepare(CQL_REVIEWS_BY_ASIN_INSERT);
+		psAddReviewsReviewerID = session.prepare(CQL_CREATE_USER_REVIEWS_BY_REVIEWER_ID);
+
+		psSelectItemAsin = session.prepare(CQL_ITEM_BY_ASIN_SELECT);
+		psSelectReviewsAsin = session.prepare(CQL_REVIEWS_BY_REVIEWERID_INSERT);
+		psSelectItemAsin = session.prepare(CQL_REVIEWS_BY_ASIN_SELECT);
 	}
 
 	@Override
