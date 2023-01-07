@@ -151,11 +151,11 @@ public class HW2StudentAnswer implements HW2API{
 	public void initialize() {
 		psAddItemAsin = session.prepare(CQL_ITEM_BY_ASIN_INSERT);
 		psAddReviewsAsin = session.prepare(CQL_REVIEWS_BY_ASIN_INSERT);
-		psAddReviewsReviewerID = session.prepare(CQL_CREATE_USER_REVIEWS_BY_REVIEWER_ID);
-
+		psAddReviewsReviewerID = session.prepare(CQL_REVIEWS_BY_REVIEWERID_INSERT);
+		
 		psSelectItemAsin = session.prepare(CQL_ITEM_BY_ASIN_SELECT);
-		psSelectReviewsAsin = session.prepare(CQL_REVIEWS_BY_REVIEWERID_INSERT);
-		psSelectItemAsin = session.prepare(CQL_REVIEWS_BY_ASIN_SELECT);
+		psSelectReviewsAsin = session.prepare(CQL_REVIEWS_BY_ASIN_SELECT);
+		psSelectReviewsReviewerID = session.prepare(CQL_REVIEWS_BY_REVIEWERID_SELECT);
 	}
 
 	@Override
