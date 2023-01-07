@@ -5,14 +5,17 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.shaded.guava.common.cache.Cache;
 import com.datastax.oss.driver.shaded.guava.common.io.InsecureRecursiveDeleteException;
 
 import bigdatacourse.hw2.HW2API;
@@ -25,6 +28,33 @@ public class HW2StudentAnswer implements HW2API{
 	// CQL stuff
 	//TODO: add here create table and query designs 
 	
+	private static final String		TABLE_ITEM_BY_ASIM = "item_by_asim";
+	private static final String		TABLE_USER_REVIEWS_BY_REVIEWER_ID = "uesrReviews_by_reviewerID";
+	private static final String		TABLE_ITEMREVIEWS_BY_ASIM = "itemReviews_by_asin";
+		
+	private static final String		CQL_CREATE_ITEM_BY_ASIN = 
+			"CREATE TABLE " + TABLE_ITEM_BY_ASIM  +"(" 		+ 
+				"asin text,"			+
+				"title text,"			+
+				"image text,"			+
+				"catagories set<text>,"		+
+				"description text,"		+
+				"PRIMARY KEY (asin)"		+
+			")";				
+			
+	private static final String		CQL_CREATE_USER_REVIEWS_BY_REVIEWER_ID =
+			"CREATE TABLE " + TABLE_USER_REVIEWS_BY_REVIEWER_ID +"(" 		+ 
+				"reviewerID text,"				+
+				"ts timestamp,"					+
+				"asin text,"					+
+				"reviewerName text,"				+
+				"rating int,"					+
+				"summary text,"					+
+				"PRIMARY KEY ((reviewerID), ts, asin)"		+
+			") "							+
+			"WITH CLUSTERING ORDER BY (ts DESC)";
+
+
 	// cassandra session
 	private CqlSession session;
 	
@@ -171,7 +201,7 @@ public class HW2StudentAnswer implements HW2API{
 		System.out.println("total reviews: " + 3);
 	}
 
-	private void readJSONFile(String dataFile, String tableName) throws Exception{
+	private void readJSONFile(String dataFile, String dataFormatName) throws Exception{
 		String line;
 		FileReader fr = new FileReader(dataFile);
 		BufferedReader br = new BufferedReader(fr);
@@ -180,20 +210,95 @@ public class HW2StudentAnswer implements HW2API{
 				JSONTokener tokener = new JSONTokener(line);
 				JSONObject json = new JSONObject(tokener);
 
-				switch (tableName) {
-					case "item_by_asin":
-						String asin = json.getString("asin");
-						String title = json.getString("title");
-						String image = json.getString("title");
-						Iterator<Object> categories = json.getJSONArray("categories").iterator();
-						String description = json.getString("description");
-
+				switch (dataFormatName) {
+					case "items":
+						
+						String asin;
+						String title;
+						String image;
+						Iterator<Object> categories;
+						String description;
+					
+					
+						try{
+							asin = json.getString("asin");
+						}
+						catch(JSONException e){
+							asin = NOT_AVAILABLE_VALUE; 
+						}
+						try{
+							title = json.getString("title");
+						}
+						catch(JSONException e){
+							title = NOT_AVAILABLE_VALUE; 
+						}
+						try{
+							image = json.getString("imUrl");
+						}
+						catch(JSONException e){
+							image = NOT_AVAILABLE_VALUE; 
+						}
+						try{
+							categories = json.getJSONArray("categories").iterator();
+						}
+						catch(JSONException e){
+							categories = null;
+						} 
+						try{
+							description = json.getString("description");
+						}
+						catch(JSONException e){
+							description = NOT_AVAILABLE_VALUE; 
+						}	
+						
 						insertItemByAsin(asin, title, image, categories, description);
 						
 						break;
-					case "userReviews_by_reviewerID":
-						break;
-					case "itemReviews_by_asin":
+					
+					case "reviews":
+					Instant time;
+					String reviewerID;
+					int rating;
+					String summary;
+					String reviewText;	
+					try{
+						time = Instant.ofEpochSecond(json.getLong("unixReviewTime"));
+					}
+					catch(JSONException e){
+						time = null; 
+					}
+					try{
+						asin = json.getString("asin");
+					}
+					catch(JSONException e){
+						asin = NOT_AVAILABLE_VALUE; 
+					}
+					try{
+						reviewerID = json.getString("imUrl");
+					}
+					catch(JSONException e){
+						reviewerID = NOT_AVAILABLE_VALUE; 
+					}
+					try{
+						rating = json.getInt("overall");	
+					}
+					catch(JSONException e){
+						rating = -1;
+					} 
+					try{
+						summary = json.getString("description");
+					}
+					catch(JSONException e){
+						summary = NOT_AVAILABLE_VALUE; 
+					}
+					try{
+						reviewText = json.getString("description");
+					}
+					catch(JSONException e){
+						reviewText = NOT_AVAILABLE_VALUE; 
+					}
+						insertReviewByReviwer(asin, time, reviewerID, rating, summary, reviewText);
+						insertReviewByAsin(asin, time, reviewerID, rating, summary, reviewText);
 						break;
 				}
 
@@ -202,6 +307,16 @@ public class HW2StudentAnswer implements HW2API{
 		fr.close();
 		 
 	}
+	private void insertReviewByAsin(String asin, Instant time, String reviewerID, int rating, String summary,
+			String reviewText) {
+	}
+
+
+	private void insertReviewByReviwer(String asin, Instant time, String reviewerID, int rating, String summary,
+			String reviewText) {
+	}
+
+
 	//need to think if thats the best why TODO!
 	private void insertItemByAsin(String asin, String title,String image,Iterator<Object> categories,String description){
 		System.out.println("TODO: implement this function...");
