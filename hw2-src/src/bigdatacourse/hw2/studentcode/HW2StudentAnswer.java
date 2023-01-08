@@ -5,19 +5,22 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
-import com.datastax.oss.driver.shaded.guava.common.cache.Cache;
-import com.datastax.oss.driver.shaded.guava.common.io.InsecureRecursiveDeleteException;
 
 import bigdatacourse.hw2.HW2API;
 
@@ -25,7 +28,8 @@ public class HW2StudentAnswer implements HW2API{
 	
 	// general consts
 	public static final String		NOT_AVAILABLE_VALUE 	=		"na";
-
+	public static final int         NOT_AVALIBLE_RATING		=		  -1;
+	private final ReentrantLock lock = new ReentrantLock();
 	// CQL stuff
 	//TODO: add here create table and query designs 
 	
@@ -52,6 +56,7 @@ public class HW2StudentAnswer implements HW2API{
 				"reviewerName text,"			+
 				"rating int,"					+
 				"summary text,"					+
+				"reviewText text,"				+
 				"PRIMARY KEY ((reviewerID), ts, asin)"		+
 			") "							+
 			"WITH CLUSTERING ORDER BY (ts DESC, asin DESC)";
@@ -65,6 +70,7 @@ public class HW2StudentAnswer implements HW2API{
 				"reviewerName text,"			+
 				"rating int,"					+
 				"summary text,"					+
+				"reviewText text,"				+
 				"PRIMARY KEY ((asin), ts , reviewerID)"		+
 			") "							+
 			"WITH CLUSTERING ORDER BY (ts DESC, reviewerID DESC)";
@@ -72,22 +78,22 @@ public class HW2StudentAnswer implements HW2API{
 
 	
 	private static final String		CQL_ITEM_BY_ASIN_SELECT = 
-		"SELECT * FROM " + TABLE_ITEMREVIEWS_BY_ASIN + "WHERE asin = ?";
+		"SELECT * FROM " + TABLE_ITEM_BY_ASIN + " WHERE asin = ?";
 	
 	private static final String		CQL_REVIEWS_BY_REVIEWERID_SELECT = 
-		"SELECT * FROM " + TABLE_USER_REVIEWS_BY_REVIEWER_ID + "WHERE reviewerID = ?";
+		"SELECT * FROM " + TABLE_USER_REVIEWS_BY_REVIEWER_ID + " WHERE reviewerID = ?";
 	
 	private static final String		CQL_REVIEWS_BY_ASIN_SELECT = 
-		"SELECT * FROM " + TABLE_ITEMREVIEWS_BY_ASIN + "WHERE asin = ?";
+		"SELECT * FROM " + TABLE_ITEMREVIEWS_BY_ASIN + " WHERE asin = ?";
 	
 	private static final String		CQL_ITEM_BY_ASIN_INSERT = 
-		"INSERT INTO " + TABLE_ITEMREVIEWS_BY_ASIN + "(asin, title, image, catagories, description) VALUES(?,?,?,?,?)";
-	
+		"INSERT INTO " + TABLE_ITEM_BY_ASIN + "(asin, title, image, catagories, description) VALUES(?,?,?,?,?)";
+					
 	private static final String		CQL_REVIEWS_BY_REVIEWERID_INSERT = 
-		"INSERT INTO " + TABLE_ITEMREVIEWS_BY_ASIN + "(reviewerID, ts, asin, reviewerName, rating, summary) VALUES(?,?,?,?,?,?)";
+		"INSERT INTO " + TABLE_USER_REVIEWS_BY_REVIEWER_ID + "(reviewerID, ts, asin, reviewerName, rating, summary, reviewText) VALUES(?,?,?,?,?,?,?)";
 	
 	private static final String		CQL_REVIEWS_BY_ASIN_INSERT = 
-		"INSERT INTO " + TABLE_ITEMREVIEWS_BY_ASIN + "(reviewerID, ts, asin, reviewerName, rating, summary) VALUES(?,?,?,?,?,?)";
+		"INSERT INTO " + TABLE_ITEMREVIEWS_BY_ASIN + "(reviewerID, ts, asin, reviewerName, rating, summary, reviewText) VALUES(?,?,?,?,?,?,?)";
 	
 	
 			
@@ -95,7 +101,6 @@ public class HW2StudentAnswer implements HW2API{
 	private CqlSession session;
 	
 	// prepared statements
-	//TODO: add here prepared statements variables
 	private PreparedStatement psAddItemAsin;  
 	private PreparedStatement psAddReviewsReviewerID;
 	private PreparedStatement psAddReviewsAsin;
@@ -139,12 +144,25 @@ public class HW2StudentAnswer implements HW2API{
 	
 	@Override
 	public void createTables() {
-		session.execute(CQL_CREATE_ITEM_BY_ASIN);
+		try{
+			session.execute(CQL_CREATE_ITEM_BY_ASIN);
+		}catch(Exception e){
+			System.out.println(e.getMessage());
+		}
 		System.out.println("created table: " + TABLE_ITEM_BY_ASIN);
-		session.execute(CQL_CREATE_USER_REVIEWS_BY_REVIEWER_ID);
-		System.out.println("created table: " + TABLE_USER_REVIEWS_BY_REVIEWER_ID);
-		session.execute(CQL_CREATE_ITEMREVIEWS_BY_ASIN);
+		try{
+			session.execute(CQL_CREATE_USER_REVIEWS_BY_REVIEWER_ID);
+		}catch(Exception e){
+			System.out.println(e.getMessage());
+		}
+		try{
+			session.execute(CQL_CREATE_ITEMREVIEWS_BY_ASIN);
+		}catch(Exception e){
+			System.out.println(e.getMessage());
+		}
 		System.out.println("created table: " + TABLE_ITEMREVIEWS_BY_ASIN);
+		
+	
 	}
 
 	@Override
@@ -160,14 +178,19 @@ public class HW2StudentAnswer implements HW2API{
 
 	@Override
 	public void loadItems(String pathItemsFile) throws Exception {
-		//TODO: implement this function
-		System.out.println("TODO: implement this function...");
+		loadFileWithTreads(pathItemsFile, "items", "items");
+		System.out.println("done insert data to + " + TABLE_ITEM_BY_ASIN);
+		
 	}
+
 
 	@Override
 	public void loadReviews(String pathReviewsFile) throws Exception {
-		//TODO: implement this function
-		System.out.println("TODO: implement this function...");
+		loadFileWithTreads(pathReviewsFile, "reviews", "review by reviewer");
+		System.out.println("done insert data to " + TABLE_USER_REVIEWS_BY_REVIEWER_ID);
+		
+		loadFileWithTreads(pathReviewsFile, "reviews", "review by asim");
+		System.out.println("done insert data to " + TABLE_ITEMREVIEWS_BY_ASIN);
 	}
 
 	@Override
@@ -179,7 +202,7 @@ public class HW2StudentAnswer implements HW2API{
 		System.out.println("asin: " 		+ "B005QB09TU");
 		System.out.println("title: " 		+ "Circa Action Method Notebook");
 		System.out.println("image: " 		+ "http://ecx.images-amazon.com/images/I/41ZxT4Opx3L._SY300_.jpg");
-		System.out.println("categories: " 	+ new HashSet<String>(Arrays.asList("Notebooks & Writing Pads", "Office & School Supplies", "Office Products", "Paper")));
+		System.out.println("categories: " 	+ new TreeSet<String>(Arrays.asList("Notebooks & Writing Pads", "Office & School Supplies", "Office Products", "Paper")));
 		System.out.println("description: " 	+ "Circa + Behance = Productivity. The minute-to-minute flexibility of Circa note-taking meets the organizational power of the Action Method by Behance. The result is enhanced productivity, so you'll formulate strategies and achieve objectives even more efficiently with this Circa notebook and project planner. Read Steve's blog on the Behance/Levenger partnership Customize with your logo. Corporate pricing available. Please call 800-357-9991.");;
 		
 		// required format - if the asin does not exists return this value
@@ -252,12 +275,14 @@ public class HW2StudentAnswer implements HW2API{
 		System.out.println("total reviews: " + 3);
 	}
 
-	private void readJSONFile(String dataFile, String dataFormatName) throws Exception{
-		String line;
-		FileReader fr = new FileReader(dataFile);
-		BufferedReader br = new BufferedReader(fr);
-		
-			while((line = br.readLine()) != null){
+	private void readJSONFile(BufferedReader br, String line, String dataFormatName , String table) throws Exception {
+			while(true){
+				lock.lock();
+				line = br.readLine();
+				if(line == null) {
+					lock.unlock();
+					break;
+				}
 				JSONTokener tokener = new JSONTokener(line);
 				JSONObject json = new JSONObject(tokener);
 
@@ -267,7 +292,7 @@ public class HW2StudentAnswer implements HW2API{
 						String asin;
 						String title;
 						String image;
-						Iterator<Object> categories;
+						TreeSet<String> categories;
 						String description;
 					
 					
@@ -290,10 +315,16 @@ public class HW2StudentAnswer implements HW2API{
 							image = NOT_AVAILABLE_VALUE; 
 						}
 						try{
-							categories = json.getJSONArray("categories").iterator();
+							Iterator<Object> iterator = json.getJSONArray("categories").getJSONArray(0)   .iterator();
+							categories = new TreeSet<>();
+							while (iterator.hasNext()) {
+								categories.add((String) iterator.next());
+							}
+
+							
 						}
 						catch(JSONException e){
-							categories = null;
+							categories = new TreeSet<>();
 						} 
 						try{
 							description = json.getString("description");
@@ -311,7 +342,8 @@ public class HW2StudentAnswer implements HW2API{
 					String reviewerID;
 					int rating;
 					String summary;
-					String reviewText;	
+					String reviewText;
+					String reviewerName;	
 					try{
 						time = Instant.ofEpochSecond(json.getLong("unixReviewTime"));
 					}
@@ -325,7 +357,7 @@ public class HW2StudentAnswer implements HW2API{
 						asin = NOT_AVAILABLE_VALUE; 
 					}
 					try{
-						reviewerID = json.getString("imUrl");
+						reviewerID = json.getString("reviewerID");
 					}
 					catch(JSONException e){
 						reviewerID = NOT_AVAILABLE_VALUE; 
@@ -334,44 +366,115 @@ public class HW2StudentAnswer implements HW2API{
 						rating = json.getInt("overall");	
 					}
 					catch(JSONException e){
-						rating = -1;
+						rating = NOT_AVALIBLE_RATING;
 					} 
 					try{
-						summary = json.getString("description");
+						summary = json.getString("summary");
 					}
 					catch(JSONException e){
 						summary = NOT_AVAILABLE_VALUE; 
 					}
 					try{
-						reviewText = json.getString("description");
+						reviewText = json.getString("reviewText");
 					}
 					catch(JSONException e){
 						reviewText = NOT_AVAILABLE_VALUE; 
 					}
-						insertReviewByReviwer(asin, time, reviewerID, rating, summary, reviewText);
-						insertReviewByAsin(asin, time, reviewerID, rating, summary, reviewText);
+					try{
+						reviewerName = json.getString("reviewerName");
+					}catch(JSONException e){
+						reviewerName = NOT_AVAILABLE_VALUE;
+					}
+						switch(table){
+							case "review by reviewer":
+								insertReviewByReviwer(asin, time, reviewerID, rating, summary, reviewText, reviewerName);
+								break;
+							case "review by asim":
+								insertReviewByAsin(asin, time, reviewerID, rating, summary, reviewText, reviewerName);
+								break;	
+						}
 						break;
 				}
-
+				
 			}
-		
-		fr.close();
 		 
 	}
 	private void insertReviewByAsin(String asin, Instant time, String reviewerID, int rating, String summary,
-			String reviewText) {
+			String reviewText, String reviewerName) {	
+			
+			BoundStatement bsAddReviewsAsin = psAddReviewsAsin.bind()
+				.setString(0, reviewerID)
+				.setInstant(1, time)
+				.setString(2, asin)
+				.setString(3, reviewerName)
+				.setInt(4, rating)
+				.setString(5, summary)
+				.setString(6, reviewText);
+
+			lock.unlock();
+			session.execute(bsAddReviewsAsin);
 	}
 
 
 	private void insertReviewByReviwer(String asin, Instant time, String reviewerID, int rating, String summary,
-			String reviewText) {
+			String reviewText, String reviewerName) {
+			
+			BoundStatement bsAddReviewsReviewerID = psAddReviewsReviewerID.bind()
+				.setString(0, reviewerID)
+				.setInstant(1, time)
+				.setString(2, asin)
+				.setString(3, reviewerName)
+				.setInt(4, rating)
+				.setString(5, summary)
+				.setString(6, reviewText);
+
+			lock.unlock();
+			session.execute(bsAddReviewsReviewerID);
 	}
 
 
-	//need to think if thats the best why TODO!
-	private void insertItemByAsin(String asin, String title,String image,Iterator<Object> categories,String description){
-		System.out.println("TODO: implement this function...");
+	private void insertItemByAsin(String asin, String title,String image, TreeSet<String> categories,String description){
+		BoundStatement bsAddItemAsin = psAddItemAsin.bind()
+			.setString(0, asin)
+			.setString(1, title)
+			.setString(2, image)
+			.setSet(3, categories, String.class)
+			.setString(4, description);
+
+			lock.unlock();
+			session.execute(bsAddItemAsin);
 	}
+
+	private void loadFileWithTreads(String dataFile, String fileName, String table) throws Exception {
+		int maxThreads = 100;
+		int count = 200;
+		FileReader fr = new FileReader(dataFile);
+		BufferedReader br = new BufferedReader(fr);
+		String line = null;
+		
+		
+		// creating the thread factors
+		ExecutorService executor = Executors.newFixedThreadPool(maxThreads);
+		for(int i = 0;i < count; i++){
+			executor.execute(new Runnable() {
+				@Override
+				public void run() {
+					try{
+						readJSONFile(br, line, fileName, table);			
+					}catch(Exception e){
+						System.out.println(e.getMessage());
+						return;
+					}
+				}
+			});
+		}
+		executor.shutdown();
+		executor.awaitTermination(1, TimeUnit.HOURS);
+
+		br.close();
+		fr.close();
+	}
+
 
 
 }
