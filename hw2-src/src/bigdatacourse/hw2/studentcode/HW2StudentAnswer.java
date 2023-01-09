@@ -21,6 +21,8 @@ import org.json.JSONTokener;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
 
 import bigdatacourse.hw2.HW2API;
 
@@ -196,8 +198,8 @@ public class HW2StudentAnswer implements HW2API{
 	@Override
 	public void item(String asin) {
 		//TODO: implement this function
-		System.out.println("TODO: implement this function...");
-		
+		SelectItemDetails(session, psSelectItemAsin, asin);
+		/* 
 		// required format - example for asin B005QB09TU
 		System.out.println("asin: " 		+ "B005QB09TU");
 		System.out.println("title: " 		+ "Circa Action Method Notebook");
@@ -206,13 +208,15 @@ public class HW2StudentAnswer implements HW2API{
 		System.out.println("description: " 	+ "Circa + Behance = Productivity. The minute-to-minute flexibility of Circa note-taking meets the organizational power of the Action Method by Behance. The result is enhanced productivity, so you'll formulate strategies and achieve objectives even more efficiently with this Circa notebook and project planner. Read Steve's blog on the Behance/Levenger partnership Customize with your logo. Corporate pricing available. Please call 800-357-9991.");;
 		
 		// required format - if the asin does not exists return this value
-		System.out.println("not exists");
+		System.out.println("not exists");*/
 	}
 	
 	
 	@Override
 	public void userReviews(String reviewerID) {
 		//TODO: implement this function
+		SelectReviewsDetails(session,psSelectReviewsReviewerID, reviewerID);
+		/* 
 		System.out.println("TODO: implement this function...");
 		
 		
@@ -236,14 +240,15 @@ public class HW2StudentAnswer implements HW2API{
 				", reviewText: " 	+ "Purchased this for the owner of a small automotive repair business I work for.  The old one was being held together with duct tape.  When I saw this one on Amazon (where I look for almost everything first) and looked at the price, I knew this was the one.  Really nice and very sturdy.");
 
 		System.out.println("total reviews: " + 2);
+		*/
 	}
 
 	@Override
 	public void itemReviews(String asin) {
-		//TODO: implement this function
-		System.out.println("TODO: implement this function...");
+		SelectReviewsDetails(session,psSelectReviewsReviewerID, asin);
+		//System.out.println("TODO: implement this function...");
 		
-		
+		/* 
 		// required format - example for asin B005QDQXGQ
 		System.out.println(	
 				"time: " 			+ Instant.ofEpochSecond(1391299200) + 
@@ -273,6 +278,7 @@ public class HW2StudentAnswer implements HW2API{
 				", reviewText: " 	+ "It was my own fault, I guess, for not thoroughly reading the description, but this is just a blow-up beach ball.  For that, I think it was very overpriced.  I thought at least I was getting one of those pre-inflated kickball-type balls that you find in the giant bins in the chain stores.  This did have a page of instructions for a few different games kids can play.  Still, I think kids know what to do when handed a ball, and there's a lot less you can do with a beach ball than a regular kickball, anyway.");
 
 		System.out.println("total reviews: " + 3);
+		*/
 	}
 
 	private void readJSONFile(BufferedReader br, String line, String dataFormatName , String table) throws Exception {
@@ -475,6 +481,51 @@ public class HW2StudentAnswer implements HW2API{
 		fr.close();
 	}
 
+
+	public static void SelectItemDetails(CqlSession session, PreparedStatement psSelectItemDetails, String asin) {
+		//should we use the asin (i.e, user_id was there instead of asin since it is the partition key)?
+		BoundStatement bsid = psSelectItemDetails.bind().setString(0, asin);
+		ResultSet rs = session.execute(bsid);
+		Row row = rs.one();
+		int count = 0;
+		while (row != null) {		
+			System.out.println("asin: " 		+   row.getString("asin"));
+			System.out.println("title: " 		+  row.getString("title"));
+			System.out.println("image: " 		+ row.getString("image"));
+			//System.out.println("categories: " 	+ new HashSet<String>(Arrays.asList(row.getSet(i, String.javaType), elemType))));
+			//the previous line will be commented out& debuged after debuging the other parts. 
+			System.out.println("description: " 	+ row.getString("description"));
+			
+			row = rs.one();
+			count++;
+		}
+	}
+	
+	
+	public static void SelectReviewsDetails(CqlSession session, PreparedStatement psSelectReviewsReviewerID, String asin) {
+		//should we use the asin (i.e, user_id was there instead of asin since it is the partition key)?
+		//System.out.println("SelectReviewsDetails");
+		BoundStatement bsrd =  psSelectReviewsReviewerID.bind().setString(0, asin);
+		ResultSet rs = session.execute(bsrd);
+		Row row = rs.one();
+		int count = 0;
+		while (row != null) {
+			System.out.println(	
+					"time: " 			+ Instant.ofEpochSecond(1391299200)  + 
+					", asin: " 			+ row.getString("asin") 	+
+					", reviewerID: " 	+ row.getString("reviewerID")  	+
+					", reviewerName: " 	+ row.getString("reviewerName")	+
+					", rating: " 		+ row.getInt("rating")	+
+					", summary: " 		+ row.getString("summary"));
+					//, reviewText: " 	+ //do we have this field? should we print it?
+			
+			System.out.println("total reviews: " + count);
+			row = rs.one();
+			count++;
+		}
+	}
+	
+	
 
 
 }
