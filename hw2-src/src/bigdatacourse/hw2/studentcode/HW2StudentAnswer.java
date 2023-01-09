@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.TreeSet;
@@ -23,6 +24,7 @@ import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.typesafe.config.ConfigException.Null;
 
 import bigdatacourse.hw2.HW2API;
 
@@ -217,7 +219,6 @@ public class HW2StudentAnswer implements HW2API{
 		//TODO: implement this function
 		SelectReviewsDetails(session,psSelectReviewsReviewerID, reviewerID);
 		/* 
-		System.out.println("TODO: implement this function...");
 		
 		
 		// required format - example for asin A17OJCRPMYWXWV
@@ -245,8 +246,7 @@ public class HW2StudentAnswer implements HW2API{
 
 	@Override
 	public void itemReviews(String asin) {
-		SelectReviewsDetails(session,psSelectReviewsReviewerID, asin);
-		//System.out.println("TODO: implement this function...");
+		SelectReviewsDetails(session, psSelectReviewsAsin, asin);
 		
 		/* 
 		// required format - example for asin B005QDQXGQ
@@ -487,13 +487,16 @@ public class HW2StudentAnswer implements HW2API{
 		BoundStatement bsid = psSelectItemDetails.bind().setString(0, asin);
 		ResultSet rs = session.execute(bsid);
 		Row row = rs.one();
+		if (row == null){
+			System.out.println("not exists");
+		}
 		int count = 0;
 		while (row != null) {		
 			System.out.println("asin: " 		+   row.getString("asin"));
 			System.out.println("title: " 		+  row.getString("title"));
 			System.out.println("image: " 		+ row.getString("image"));
-			//System.out.println("categories: " 	+ new HashSet<String>(Arrays.asList(row.getSet(i, String.javaType), elemType))));
-			//the previous line will be commented out& debuged after debuging the other parts. 
+			System.out.println("categories: " 	+ row.getSet("catagories", String.class));
+			//the previous line will be commented out & debuged after debuging the other parts. 
 			System.out.println("description: " 	+ row.getString("description"));
 			
 			row = rs.one();
@@ -502,13 +505,15 @@ public class HW2StudentAnswer implements HW2API{
 	}
 	
 	
-	public static void SelectReviewsDetails(CqlSession session, PreparedStatement psSelectReviewsReviewerID, String asin) {
-		//should we use the asin (i.e, user_id was there instead of asin since it is the partition key)?
+	public static void SelectReviewsDetails(CqlSession session, PreparedStatement psSelectReviewsAsin, String asin) {
 		//System.out.println("SelectReviewsDetails");
-		BoundStatement bsrd =  psSelectReviewsReviewerID.bind().setString(0, asin);
+		BoundStatement bsrd =  psSelectReviewsAsin.bind().setString(0, asin);
 		ResultSet rs = session.execute(bsrd);
 		Row row = rs.one();
 		int count = 0;
+		if (row == null){
+			System.out.println("not exists");
+		}
 		while (row != null) {
 			System.out.println(	
 					"time: " 			+ Instant.ofEpochSecond(1391299200)  + 
